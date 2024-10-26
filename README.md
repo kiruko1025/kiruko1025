@@ -1,5 +1,5 @@
 ## Contacts
 
-everettmay1025@gmail.com
-Discord: kiruko1025
-Steam: https://steamcommunity.com/id/chekaikuchashaipipi/
+everettmay1025@gmail.com<br/>
+Discord: kiruko1025<br/>
+Steam: https://steamcommunity.com/id/chekaikuchashaipipi/<br/>
