@@ -5,5 +5,6 @@ Steam: https://steamcommunity.com/id/chekaikuchashaipipi/<br/>
 Discord: kiruko1025<br/>
 
 ## My Sites
-www.everett.moe <br/>
-www.everett.baby
+Porfolio:www.everett.moe <br/>
+Student Management:www.everett.baby<br/>
+Blog: www.everett.cool
