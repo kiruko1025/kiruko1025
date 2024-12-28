@@ -8,3 +8,5 @@ Discord: kiruko1025<br/>
 Porfolio:www.everett.moe <br/>
 Student Management:www.everett.baby<br/>
 Blog: www.everett.cool
+
+[![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra)](https://github.com/anuraghazra/github-readme-stats)
