@@ -9,4 +9,4 @@ Porfolio:www.everett.moe <br/>
 Student Management:www.everett.baby<br/>
 Blog: www.everett.cool
 
-[![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=anuraghazra)](https://github.com/anuraghazra/github-readme-stats)
+[![Everett's GitHub stats](https://github-readme-stats.vercel.app/api?username=kiruko1025)](https://github.com/anuraghazra/github-readme-stats)&bg_color=24273a&text_color=cad3f5&icon_color=c6a0f6&title_color=8bd5ca
