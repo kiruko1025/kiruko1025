@@ -2,8 +2,11 @@
 
 
 <h2 align="left">Hi</h2>
-
-[![Everett's GitHub stats](https://github-readme-stats.vercel.app/api?username=kiruko1025&bg_color=24273a&text_color=cad3f5&icon_color=c6a0f6&title_color=8bd5ca&show_icons=true)](https://github.com/anuraghazra/github-readme-stats) [![GitHub Streak](https://streak-stats.demolab.com?user=kiruko1025&theme=catppuccin-macchiato)](https://git.io/streak-stats)
+###
+<div align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=kiruko1025&hide_title=false&hide_rank=false&show_icons=true&include_all_commits=true&count_private=true&disable_animations=false&locale=en&hide_border=false&order=1&color=24273a&text_color=cad3f5&icon_color=c6a0f6&title_color=8bd5ca" height="150" alt="stats graph"  />
+  <img src="https://github-readme-stats.vercel.app/api/top-langs?username=kiruko1025&locale=en&hide_title=false&layout=compact&card_width=320&langs_count=5&hide_border=false&order=2&color=24273a&text_color=cad3f5&icon_color=c6a0f6&title_color=8bd5ca" height="150" alt="languages graph"  />
+</div>
 
 
 ###
