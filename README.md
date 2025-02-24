@@ -13,7 +13,7 @@
 
 ###
 
-<img align="right" height="150" src="none"  />
+<img align="right" height="150" src="masaki.gif"  />
 
 ###
 
