@@ -1,0 +1,52 @@
+name: Run Console
+
+on:
+  schedule:
+    - cron: "*/12 * * * *"  # Runs every 12 minute
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  console:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2  # Checkout your code repository
+
+      - name: Configure Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Pull latest changes
+        run: git pull origin main  # Pull changes without rebase
+
+      - name: Run "console" and update README.md
+        run: |
+          set -x  # Enable debugging
+          sudo timedatectl set-timezone America/New_York
+          chmod +x console.sh  
+          
+          rm -f README.md
+          touch README.md
+          echo "\`\`\` bash" | tee -a README.md
+          ./console.sh | tee -a README.md
+          echo "\`\`\` " | tee -a README.md
+          echo " " | tee -a README.md
+          cat static.md | tee -a README.md
+
+      - name: Debug repository state
+        run: |
+          ls -l  # List files in the repository
+          git status  # Check the Git status
+          cat README.md  # Display the contents of README.md (if it exists)
+
+      - name: Commit and push changes
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+          else
+            git add README.md
+            git commit -m "Run console"
+            git pull origin main --rebase  # Rebase before pushing
+            git push origin main
+          fi
