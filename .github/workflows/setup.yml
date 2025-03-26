@@ -47,6 +47,6 @@ jobs:
           else
             git add README.md
             git commit -m "Run console"
-            git pull origin main --rebase  # Rebase before pushing
+            git pull origin main --rebase --autostash  # Rebase before pushing
             git push origin main
           fi
