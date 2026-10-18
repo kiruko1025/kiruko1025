@@ -1,5 +1,5 @@
 ``` bash
-Last login: Sat, 17 Oct 2026 at 19:05:26 EDT from 10.1.33.7
+Last login: Sat, 17 Oct 2026 at 20:58:56 EDT from 10.1.33.7
 
 echo "hello world, im $(whoami)." 
 hello world, im everett.
