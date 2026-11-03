@@ -1,6 +1,6 @@
 # Location from local commits
 
-The terminal header displays the public IP and approximate city of the computer
+The single README line displays the public IP and approximate city of the computer
 that most recently made a local commit with this hook installed. A scheduled
 GitHub Action refreshes weather for that recorded location every 12 minutes
 (GitHub scheduling can be delayed). It never geolocates the Actions runner.

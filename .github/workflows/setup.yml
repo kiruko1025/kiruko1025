@@ -9,7 +9,6 @@ on:
     paths:
       - profile-location.json
       - scripts/render_profile.py
-      - static.md
       - .github/workflows/setup.yml
 
 permissions:

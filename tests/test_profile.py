@@ -39,18 +39,17 @@ class ProfileTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             hook.location_record(dict(GEO, error=True), TIME)
 
-    def test_render_timezone_and_failure(self):
+    def test_single_line_and_weather_failure(self):
         location = hook.location_record(GEO, TIME)
         def unavailable(_):
             raise TimeoutError()
-        result = render.terminal(location, unavailable)
-        self.assertIn("Mon, 02 Nov 2026 at 17:00:00 PST", result)
-        self.assertIn("8.8.8.8", result)
-        self.assertIn("Weather temporarily unavailable", result)
-        self.assertIn("Waiting for the first commit", render.terminal({}))
+        result = render.profile_line(location, unavailable)
+        self.assertEqual(result, "Everett is at Example City, CA, US (8.8.8.8) — weather unavailable.\n")
+        self.assertEqual(len(result.splitlines()), 1)
+        self.assertEqual(render.profile_line({}), "Everett is at an unknown location (IP unavailable) — weather unavailable.\n")
 
     def test_remote_text_cannot_escape_fence(self):
-        self.assertEqual(render.clean("city\n```\n<script>"), "city ''' <script>")
+        self.assertEqual(render.clean("city\n```\n<script>"), "city &#x27;&#x27;&#x27; &lt;script&gt;")
 
     def test_weather_request_and_render(self):
         response = {"current": {"weather_code": 2, "temperature_2m": 72.5,
@@ -60,7 +59,7 @@ class ProfileTests(unittest.TestCase):
             result = render.weather(hook.location_record(GEO, TIME))
         self.assertIn("latitude=37.12", api.call_args.args[0].full_url)
         self.assertIn("Partly cloudy, 72.5°F", result)
-        self.assertIn("17:00", result)
+        self.assertEqual(result, "Partly cloudy, 72.5°F")
 
     def test_publish_skips_ci(self):
         with patch.dict(os.environ, {"CI": "true"}), patch.object(hook, "gh") as api:

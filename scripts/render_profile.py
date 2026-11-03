@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Render the terminal header using the last location recorded on a local device."""
-from datetime import datetime
+"""Render a single profile line from the last recorded local commit location."""
+from html import escape
 import json
 from pathlib import Path
 import sys
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 CONDITIONS = {0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Fog", 48: "Rime fog",
@@ -18,51 +17,41 @@ CONDITIONS = {0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcas
 
 
 def clean(value):
-    # Keep remote text inside a single terminal line and its Markdown code fence.
-    return " ".join(str(value).replace("`", "'").split())
+    return escape(" ".join(str(value).replace("`", "'").split()))
 
 
 def weather(location):
     query = urlencode({"latitude": location["latitude"], "longitude": location["longitude"],
-                       "current": "temperature_2m,apparent_temperature,weather_code,wind_speed_10m",
-                       "temperature_unit": "fahrenheit", "wind_speed_unit": "mph", "timezone": "auto"})
+                       "current": "temperature_2m,weather_code", "temperature_unit": "fahrenheit"})
     request = Request("https://api.open-meteo.com/v1/forecast?" + query,
                       headers={"User-Agent": "github-profile-weather/1.0"})
     with urlopen(request, timeout=15) as response:
         data = json.load(response)
     current = data["current"]
     condition = CONDITIONS.get(current["weather_code"], "Unknown conditions")
-    return (f"{condition}, {current['temperature_2m']:g}°F (feels {current['apparent_temperature']:g}°F), "
-            f"wind {current['wind_speed_10m']:g} mph\n"
-            f"Weather as of {clean(current['time'])} ({clean(data['timezone'])})")
+    return f"{condition}, {current['temperature_2m']:g}°F"
 
 
-def terminal(location, fetch_weather=weather):
-    lines = ['echo "hello world, im $(whoami)."', 'hello world, im everett.', '', '$ profile --last-commit']
+def profile_line(location, fetch_weather=weather):
     if location.get("recorded_at"):
-        local = datetime.fromisoformat(location["recorded_at"]).astimezone(ZoneInfo(location.get("timezone", "UTC")))
-        lines += ["Last local commit: " + local.strftime("%a, %d %b %Y at %H:%M:%S %Z"),
-                  "Location: " + ", ".join(clean(location[k]) for k in ("city", "region", "country") if location.get(k)),
-                  "Public IP: " + clean(location["ip"]), '', '$ weather --local']
+        place = ", ".join(clean(location[k]) for k in ("city", "region", "country") if location.get(k))
+        ip = clean(location["ip"])
         try:
-            lines.append(fetch_weather(location))
+            conditions = f"[{clean(fetch_weather(location))}](https://open-meteo.com/)"
         except Exception:
-            lines.append("Weather temporarily unavailable; last commit location is unchanged.")
+            conditions = "weather unavailable"
     else:
-        lines += ["Waiting for the first commit from a computer with the location hook installed.", '',
-                  '$ weather --local', 'Waiting for a recorded location.']
-    lines += ['', '$ do one thing and do it well. ^U^D', '']
-    return "\n".join(lines) + "\n"
+        place, ip, conditions = "an unknown location", "IP unavailable", "weather unavailable"
+    return f"Everett is at {place} ({ip}) — {conditions}.\n"
 
 
 def main():
     location = json.loads((ROOT / "profile-location.json").read_text())
-    output = terminal(location)
+    output = profile_line(location)
     if "--terminal" in sys.argv:
         print(output, end="")
     else:
-        attribution = "Location is approximate and reflects the network used for my last local commit. Weather: [Open-Meteo](https://open-meteo.com/).\n\n"
-        (ROOT / "README.md").write_text("```bash\n" + output + "```\n\n" + attribution + (ROOT / "static.md").read_text())
+        (ROOT / "README.md").write_text(output)
 
 
 if __name__ == "__main__":
