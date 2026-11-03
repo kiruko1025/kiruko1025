@@ -2,7 +2,7 @@
 
 The single README line displays the public IP and approximate city of the computer
 that most recently made a local commit with this hook installed. A scheduled
-GitHub Action refreshes weather, local time and Spotify playback every 5 minutes
+GitHub Action refreshes weather, air quality, local time and Spotify playback every 5 minutes
 (GitHub scheduling can be delayed). It never geolocates the Actions runner.
 
 ## Install on each computer used to commit
@@ -93,3 +93,16 @@ track and artist linked to Spotify, or `not playing` when playback is inactive.
 Errors show `listening status unavailable`; they never reuse an older track.
 Developer-app refresh tokens currently expire after six months; rerun the
 connection helper when authorization expires or is revoked.
+
+## Air quality and weather scene
+
+Air quality uses the U.S. AQI scale, with a number and category (good, moderate,
+unhealthy for sensitive groups, unhealthy, very unhealthy or hazardous).
+It is a CAMS model estimate from the [Open-Meteo air-quality API](https://open-meteo.com/en/docs/air-quality-api),
+not a reading from a sensor at your exact location. If data is missing, the
+profile says `air quality unavailable`.
+
+The tiny inline skyline is generated as `assets/weather-scene.svg`. It uses the
+same weather response as the text, with sun/moon, clouds, rain, snow, lightning
+or fog. The buildings are decorative. It updates with the profile; if weather
+data is unavailable, the skyline becomes neutral instead of showing stale weather.

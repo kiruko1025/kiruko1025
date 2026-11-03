@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from xml.etree import ElementTree
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -50,19 +51,53 @@ class ProfileTests(unittest.TestCase):
         location = hook.location_record(GEO, TIME)
         def unavailable(_):
             raise TimeoutError()
-        result = render.profile_line(location, unavailable, lambda: None, datetime.fromisoformat(TIME))
-        self.assertEqual(result, "Example City, CA, US (8.8.8.8) · 5:00 PM PST · weather unavailable\n")
+        result = render.profile_line(location, unavailable, lambda: None, datetime.fromisoformat(TIME), fetch_air_quality=lambda _: None)
+        self.assertEqual(result, "Example City, CA, US (8.8.8.8) · 5:00 PM PST · weather unavailable · air quality unavailable\n")
         self.assertEqual(len(result.splitlines()), 1)
-        self.assertEqual(render.profile_line({}, fetch_listening=lambda: None), "location unavailable (IP unavailable) · local time unavailable · weather unavailable\n")
+        self.assertEqual(render.profile_line({}, fetch_listening=lambda: None), "location unavailable (IP unavailable) · local time unavailable · weather unavailable · air quality unavailable\n")
 
     def test_local_time_dst_and_music_failure(self):
         location = dict(hook.location_record(GEO, TIME), timezone="America/Detroit")
         def unavailable():
             raise TimeoutError()
-        result = render.profile_line(location, lambda _: "cloudy, 56°F", unavailable, datetime.fromisoformat(TIME))
+        result = render.profile_line(location, lambda _: "cloudy, 56°F", unavailable, datetime.fromisoformat(TIME), fetch_air_quality=lambda _: None)
         self.assertIn("8:00 PM EST", result)
         self.assertIn("listening status unavailable", result)
         self.assertEqual(len(result.splitlines()), 1)
+
+    def test_aqi_category_boundaries(self):
+        for value, category in ((0, "good"), (50, "good"), (51, "moderate"), (100, "moderate"),
+                                (101, "unhealthy for sensitive groups"), (150, "unhealthy for sensitive groups"),
+                                (151, "unhealthy"), (200, "unhealthy"), (201, "very unhealthy"),
+                                (300, "very unhealthy"), (301, "hazardous"), (501, "hazardous")):
+            self.assertEqual(render.aqi_category(value), category)
+        for value in (-1, float("nan"), float("inf")):
+            with self.assertRaises(ValueError): render.aqi_category(value)
+
+    def test_aqi_api_missing_and_rounding(self):
+        location = hook.location_record(GEO, TIME)
+        with patch.object(render, "urlopen", return_value=http_json({"current": {"us_aqi": 50.6}})) as api:
+            self.assertEqual(render.air_quality(location), "US AQI 51 · moderate")
+        self.assertIn("current=us_aqi", api.call_args.args[0].full_url)
+        for value in (None, -1, float("nan")):
+            with patch.object(render, "urlopen", return_value=http_json({"current": {"us_aqi": value}})):
+                with self.assertRaises(ValueError): render.air_quality(location)
+
+    def test_scenes_are_valid_and_change_with_weather_and_daylight(self):
+        images = set()
+        for code in render.CONDITIONS:
+            for day in (0, 1):
+                svg, label = render.weather_scene(code, day)
+                root = ElementTree.fromstring(svg)
+                self.assertEqual(root.attrib["viewBox"], "0 0 160 50")
+                self.assertEqual(root.find("{http://www.w3.org/2000/svg}title").text, label)
+                self.assertNotIn("<script", svg)
+                self.assertNotIn("href=", svg)
+                images.add(svg)
+        self.assertGreaterEqual(len(images), 14)
+        self.assertIn("clear night", render.weather_scene(0, 0)[1])
+        self.assertIn("sunny day", render.weather_scene(0, 1)[1])
+        self.assertIn("unavailable", render.weather_scene(None, None)[1])
 
     def test_spotify_unconfigured_avoids_requests(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(render, "urlopen") as api:

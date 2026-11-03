@@ -38,8 +38,8 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           for attempt in 1 2 3; do
-            if git diff --quiet -- README.md; then exit 0; fi
-            git add README.md
+            if git diff --quiet -- README.md assets/weather-scene.svg; then exit 0; fi
+            git add README.md assets/weather-scene.svg
             git commit -m "Refresh profile weather"
             if git push origin HEAD:main; then exit 0; fi
             git fetch origin main
