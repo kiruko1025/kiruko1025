@@ -1,1 +1,10 @@
-{}
+{
+  "ip": "2600:1700:e4c0:3450::1c",
+  "city": "Ann Arbor",
+  "region": "MI",
+  "country": "US",
+  "latitude": 42.28,
+  "longitude": -83.74,
+  "timezone": "America/Detroit",
+  "recorded_at": "2026-11-03T01:55:26.758608+00:00"
+}
