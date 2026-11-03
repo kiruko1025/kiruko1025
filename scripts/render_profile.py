@@ -219,9 +219,12 @@ def weather_scene(code, local_now, sunrise=None, sunset=None):
             end = start + 1
             while end < cols and cells[end][1] == color:
                 end += 1
-            text = "".join(char for char, _ in cells[start:end])
-            if text.strip():
-                svg.append(f'<text x="{16+start*8}" y="{20+row*12}" fill="{color}" textLength="{len(text)*8}" lengthAdjust="spacingAndGlyphs">{escape(text)}</text>')
+            # Explicit glyph positions avoid browser-dependent SVG whitespace stretching.
+            visible = [(column, cells[column][0]) for column in range(start, end) if cells[column][0] != " "]
+            if visible:
+                positions = " ".join(str(16 + column * 8) for column, _ in visible)
+                text = "".join(char for _, char in visible)
+                svg.append(f'<text x="{positions}" y="{20+row*12}" fill="{color}">{escape(text)}</text>')
             start = end
     svg += ['</g>', f'<text x="1070" y="450" text-anchor="end" font-family="monospace" font-size="9" letter-spacing="3" fill="{p["stars"]}" opacity=".7">{phase.upper()}</text>', '</svg>']
     return "".join(svg) + "\n", label
