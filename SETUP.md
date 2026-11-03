@@ -1,6 +1,6 @@
 # Location from local commits
 
-The single README line displays the public IP and approximate city of the computer
+The README status line displays the public IP and approximate city of the computer
 that most recently made a local commit with this hook installed. A scheduled
 GitHub Action refreshes weather, air quality, local time and Spotify playback every 5 minutes
 (GitHub scheduling can be delayed). It never geolocates the Actions runner.
@@ -67,8 +67,9 @@ IP/location updates remain in Git history after the feature is disabled.
 
 ## Local time and Spotify
 
-The README stays one line: location and IP, local time, weather, and Spotify
-playback. The clock uses the timezone recorded by the location hook, including
+The status line shows location and IP, local time, weather, air quality and Spotify
+playback. A full-width ASCII skyline appears on a separate line below it.
+The clock uses the timezone recorded by the location hook, including
 daylight saving time. Both time and music are snapshots from the last workflow
 run, rather than a continuously ticking clock or a live player.
 
@@ -102,7 +103,14 @@ It is a CAMS model estimate from the [Open-Meteo air-quality API](https://open-m
 not a reading from a sensor at your exact location. If data is missing, the
 profile says `air quality unavailable`.
 
-The tiny inline skyline is generated as `assets/weather-scene.svg`. It uses the
-same weather response as the text, with sun/moon, clouds, rain, snow, lightning
-or fog. The buildings are decorative. It updates with the profile; if weather
-data is unavailable, the skyline becomes neutral instead of showing stale weather.
+The colorful ASCII skyline is generated as `assets/weather-scene.svg`. Its
+buildings, windows, clouds, sun, moon and waterfront are drawn from monospaced
+ASCII characters. SVG preserves their colors on GitHub. The image sits below
+the status line at 100% of the README content width and scales on smaller screens.
+
+It uses the recorded location's current local time and today's Open-Meteo sunrise
+and sunset to switch between dawn, day, dusk and night. Dawn and dusk each span
+45 minutes before and after sunrise/sunset. If solar data is unavailable, it uses
+06:00/18:00 local time; it still updates when the weather service is unavailable.
+Window lights change with the local hour, and the sun moves during the day.
+Weather details use the same response as the text. The buildings are decorative.

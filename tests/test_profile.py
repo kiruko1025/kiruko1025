@@ -85,19 +85,23 @@ class ProfileTests(unittest.TestCase):
 
     def test_scenes_are_valid_and_change_with_weather_and_daylight(self):
         images = set()
-        for code in render.CONDITIONS:
-            for day in (0, 1):
-                svg, label = render.weather_scene(code, day)
+        for code in (0, 2, 3, 45, 61, 73, 95, None):
+            for hour in (6, 12, 18, 22):
+                local_now = datetime.fromisoformat(TIME).replace(hour=hour, minute=0)
+                svg, label = render.weather_scene(code, local_now)
                 root = ElementTree.fromstring(svg)
-                self.assertEqual(root.attrib["viewBox"], "0 0 160 50")
+                self.assertEqual(root.attrib["viewBox"], "0 0 1088 464")
                 self.assertEqual(root.find("{http://www.w3.org/2000/svg}title").text, label)
+                self.assertGreater(len(root.findall(".//{http://www.w3.org/2000/svg}text")), 100)
                 self.assertNotIn("<script", svg)
                 self.assertNotIn("href=", svg)
                 images.add(svg)
         self.assertGreaterEqual(len(images), 14)
-        self.assertIn("clear night", render.weather_scene(0, 0)[1])
-        self.assertIn("sunny day", render.weather_scene(0, 1)[1])
-        self.assertIn("unavailable", render.weather_scene(None, None)[1])
+        for hour, minute, phase in ((6, 30, "dawn"), (8, 0, "day"), (17, 0, "dusk"), (19, 0, "night")):
+            local_now = datetime.fromisoformat(TIME).replace(hour=hour, minute=minute)
+            self.assertEqual(render.skyline_phase(local_now, "2026-11-03T07:15", "2026-11-03T17:25"), phase)
+        night = datetime.fromisoformat(TIME).replace(hour=22)
+        self.assertIn("night", render.weather_scene(None, night)[1])
 
     def test_spotify_unconfigured_avoids_requests(self):
         with patch.dict(os.environ, {}, clear=True), patch.object(render, "urlopen") as api:

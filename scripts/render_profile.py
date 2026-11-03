@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a single profile line from the last recorded local commit location."""
+"""Render profile status and a colorful ASCII skyline for the recorded location."""
 from html import escape
 from datetime import datetime, timezone
 import hashlib
@@ -32,12 +32,17 @@ def markdown_text(value):
 
 def current_weather(location):
     query = urlencode({"latitude": location["latitude"], "longitude": location["longitude"],
-                       "current": "temperature_2m,weather_code,is_day", "temperature_unit": "fahrenheit"})
+                       "current": "temperature_2m,weather_code,is_day", "temperature_unit": "fahrenheit",
+                       "daily": "sunrise,sunset", "timezone": location.get("timezone", "auto"), "forecast_days": 1})
     request = Request("https://api.open-meteo.com/v1/forecast?" + query,
                       headers={"User-Agent": "github-profile-weather/1.0"})
     with urlopen(request, timeout=15) as response:
         data = json.load(response)
-    return data["current"]
+    current = data["current"]
+    daily = data.get("daily", {})
+    current["sunrise"] = (daily.get("sunrise") or [None])[0]
+    current["sunset"] = (daily.get("sunset") or [None])[0]
+    return current
 
 
 def describe_weather(current):
@@ -73,51 +78,152 @@ def air_quality(location):
     return f"US AQI {value} · {aqi_category(value)}"
 
 
-def weather_scene(code, is_day):
-    """Draw a small generic skyline, using the same conditions as the weather text."""
-    known = code in CONDITIONS and is_day is not None
-    day = bool(is_day)
-    condition = CONDITIONS.get(code, "weather unavailable")
-    if condition == "sunny" and not day:
-        condition = "clear"
-    label = f"{condition} {'day' if day else 'night'} skyline" if known else "Weather unavailable skyline"
-    sky = ("#9ac9df" if day else "#181d36") if known else "#303646"
-    cloud = "#f0f3f6" if day else "#7884a8"
-    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="50" viewBox="0 0 160 50" role="img" aria-label="{escape(label)}">',
-           f'<title>{escape(label)}</title>', '<defs><clipPath id="frame"><rect width="160" height="50" rx="7"/></clipPath></defs>',
-           '<g clip-path="url(#frame)">', f'<rect width="160" height="50" fill="{sky}"/>']
-    if known:
-        if day and code in (0, 1, 2):
-            svg += ['<circle cx="130" cy="13" r="8" fill="#ffe4a3"/>',
-                    '<circle cx="130" cy="13" r="11" fill="#ffe4a3" opacity=".16"/>']
-        elif not day and code in (0, 1, 2):
-            for x, y in ((11, 8), (43, 5), (76, 12), (103, 6), (149, 22)):
-                svg.append(f'<circle cx="{x}" cy="{y}" r=".7" fill="#e4e8ff"/>')
-            svg += ['<circle cx="132" cy="12" r="7" fill="#f8e6b4"/>',
-                    f'<circle cx="135" cy="9" r="6" fill="{sky}"/>']
-        if code not in (0,):
-            for x, y, size in ((27, 13, 1), (92, 9, .8)):
-                svg.append(f'<g transform="translate({x} {y}) scale({size})" fill="{cloud}"><rect x="-14" y="0" width="35" height="8" rx="4"/><circle cx="-3" cy="0" r="7"/><circle cx="9" cy="-2" r="9"/></g>')
-    # Two layers of buildings; a generic skyline, not a geographic reconstruction.
-    for x, y, w in ((0, 32, 15), (18, 25, 18), (39, 30, 11), (53, 22, 20), (77, 29, 18), (99, 24, 13), (116, 31, 22), (143, 26, 18)):
-        svg.append(f'<rect x="{x}" y="{y}" width="{w}" height="{50-y}" fill="{("#7e99ae" if day and known else "#303c59")}"/>')
-    for x, y, w in ((-4, 37, 20), (21, 31, 14), (41, 34, 23), (71, 27, 17), (94, 35, 18), (119, 29, 16), (142, 36, 22)):
-        svg.append(f'<rect x="{x}" y="{y}" width="{w}" height="{50-y}" fill="{("#3e596f" if day and known else "#11182b")}"/>')
-        for wx in range(x + 4, x + w - 2, 6):
-            for wy in range(y + 5, 47, 6):
-                color = "#f5c97e" if known and not day and (wx + wy) % 3 else "#8eabc1"
-                svg.append(f'<rect x="{wx}" y="{wy}" width="2" height="2" fill="{color}" opacity=".75"/>')
-    if known and condition in ("raining", "stormy"):
-        for x, y in ((14, 25), (38, 22), (61, 28), (85, 23), (109, 29), (146, 30)):
-            svg.append(f'<path d="M{x} {y}l-3 6" stroke="#8dd6f9" stroke-width="1.3" stroke-linecap="round"/>')
-    if known and condition == "stormy":
-        svg.append('<path d="M78 12l-5 10h5l-3 8 12-13h-6l4-5z" fill="#ffdf78"/>')
-    if known and condition == "snowing":
-        for x, y in ((12, 26), (37, 24), (62, 28), (86, 24), (111, 29), (148, 28)):
-            svg.append(f'<path d="M{x-2} {y}h4m-2-2v4" stroke="#eef4ff" stroke-width="1"/>')
-    if known and condition == "foggy":
-        svg.append('<path d="M5 29h150M13 34h134M2 39h156" stroke="#cbd4df" stroke-width="3" opacity=".55"/>')
-    svg += ['<rect y="48" width="160" height="2" fill="#829d89"/>', '</g></svg>']
+def skyline_phase(local_now, sunrise=None, sunset=None):
+    """Choose the light from local solar times, falling back to local 06:00/18:00."""
+    hour = local_now.hour + local_now.minute / 60
+    rise, setting = 6.0, 18.0
+    try:
+        rise_dt, set_dt = datetime.fromisoformat(sunrise), datetime.fromisoformat(sunset)
+        if rise_dt.date() == local_now.date() == set_dt.date():
+            rise = rise_dt.hour + rise_dt.minute / 60
+            setting = set_dt.hour + set_dt.minute / 60
+    except (TypeError, ValueError):
+        pass
+    if rise - .75 <= hour < rise + .75:
+        return "dawn"
+    if rise + .75 <= hour < setting - .75:
+        return "day"
+    if setting - .75 <= hour < setting + .75:
+        return "dusk"
+    return "night"
+
+
+def weather_scene(code, local_now, sunrise=None, sunset=None):
+    """Color a genuine ASCII character grid as a responsive SVG skyline."""
+    phase = skyline_phase(local_now, sunrise, sunset)
+    palettes = {
+        "dawn": dict(top="#202542", bottom="#a36e79", back="#95778f", stars="#efd6e0",
+                     buildings=["#eec3aa", "#d2accd", "#9fc5d7", "#f6bd98"],
+                     lit=["#fff0bf", "#ffcf86", "#e2e4f5"], dark="#8d8094", water="#9e7f9b"),
+        "day": dict(top="#123d5a", bottom="#458c9a", back="#679fae", stars="#c8edf1",
+                    buildings=["#9de2e1", "#c2ddff", "#a3bfdc", "#e7d8b3"],
+                    lit=["#fff0b4", "#d0f9ff", "#c6d7f9"], dark="#578d9e", water="#6cb2bd"),
+        "dusk": dict(top="#282348", bottom="#b85c78", back="#795c85", stars="#f0c9df",
+                     buildings=["#f3b6c7", "#c5a8f1", "#9fc9e7", "#ffcb9d"],
+                     lit=["#ffde8c", "#ffc2a8", "#f1d1fc"], dark="#866c92", water="#ad7da9"),
+        "night": dict(top="#0a1025", bottom="#202b4b", back="#3b4e73", stars="#b7cbf5",
+                      buildings=["#72d8d4", "#ab9ee7", "#7fb2f2", "#de9ec6"],
+                      lit=["#f3cb84", "#9fe3de", "#ebadd4"], dark="#344568", water="#476c91"),
+    }
+    p = palettes[phase]
+    cols, rows = 132, 36
+    grid = [[(" ", p["back"]) for _ in range(cols)] for _ in range(rows)]
+
+    def put(x, y, text, color):
+        if 0 <= y < rows:
+            for offset, char in enumerate(text):
+                if 0 <= x + offset < cols:
+                    grid[y][x + offset] = (char, color)
+
+    def art(x, y, lines, color):
+        for offset, line in enumerate(lines):
+            put(x, y + offset, line, color)
+
+    # The same sky persists between updates; time changes the light and windows.
+    if phase in ("night", "dawn", "dusk"):
+        for i in range(56 if phase == "night" else 18):
+            x, y = (i * 37 + 11) % cols, 2 + (i * 13) % 15
+            put(x, y, "+" if i % 9 == 0 else ".", p["stars"])
+    hour = local_now.hour + local_now.minute / 60
+    if phase == "night":
+        art(108, 3, ["  .--.  ", " / .-'  ", "| (     ", " \\ `-.  ", "  `--'  "], "#f6dc9e")
+    elif phase == "day":
+        sun_x = max(12, min(113, int(18 + (hour - 7) * 9)))
+        art(sun_x, 3, ["  \\ | /  ", " -- .-. --", " - ( O ) -", " -- `-' --", "  / | \\  "], "#ffe5a1")
+    else:
+        art(107 if phase == "dusk" else 11, 10, ["   .---.   ", " .'     '. ", "(   O O   )", " '-------' "], "#ffcb9d")
+
+    condition = CONDITIONS.get(code)
+    if code is not None and code != 0:
+        for x, y in ((26, 4), (78, 7)):
+            art(x, y, ["    .--.    ", " .-(    ).  ", "(___.__)__) "], p["stars"])
+    if condition in ("raining", "stormy", "snowing"):
+        for i in range(60):
+            x, y = (i * 23 + 5) % cols, 9 + (i * 7) % 18
+            put(x, y, "*" if condition == "snowing" else "/", p["stars"])
+    if condition == "stormy":
+        art(89, 10, ["  /_", "   /", "  / "], "#ffe39c")
+
+    def building(x, top, width, color, foreground, seed):
+        bottom = 29
+        # Spaces occlude the sky and the more distant buildings.
+        for y in range(top, bottom + 1):
+            put(x, y, " " * width, color)
+        put(x, top, "+" + "-" * (width - 2) + "+", color)
+        for y in range(top + 1, bottom):
+            put(x, y, "|", color)
+            put(x + width - 1, y, "|", color)
+            for column in range(x + 2, x + width - 2, 4):
+                if (y - top) % 3 == 2:
+                    sample = (column * 7 + y * 11 + seed + local_now.hour) % 10
+                    lit = foreground and sample < (7 if phase == "night" else 5 if phase in ("dawn", "dusk") else 2)
+                    put(column, y, "[]" if foreground else "::",
+                        p["lit"][(column + y) % 3] if lit else p["dark"] if foreground else color)
+        put(x, bottom, "+" + "-" * (width - 2) + "+", color)
+
+    # Distant towers sit behind a varied, continuous foreground silhouette.
+    for i, (x, top, width) in enumerate(((0, 19, 9), (10, 16, 8), (22, 13, 9), (34, 17, 11),
+                                        (48, 12, 10), (62, 16, 8), (74, 13, 12), (91, 17, 10),
+                                        (104, 12, 8), (116, 18, 9), (126, 15, 6))):
+        building(x, top, width, p["back"], False, i)
+    towers = [(0, 24, 12), (14, 20, 10), (26, 17, 13), (41, 23, 11), (54, 11, 12),
+              (68, 20, 11), (81, 16, 13), (96, 22, 12), (110, 19, 9), (121, 24, 11)]
+    for i, (x, top, width) in enumerate(towers):
+        color = p["buildings"][i % 4]
+        building(x, top, width, color, True, i * 17)
+        if i in (2, 6, 8):
+            put(x + width // 2, top - 2, "|", color)
+            put(x + width // 2 - 2, top - 1, "_|||_", color)
+        if i == 4:
+            art(x + 3, top - 6, ["   +   ", "   |   ", "  /|\\  ", " /_|_\\ ", " |:::| ", "_|___|_"], color)
+            put(x + 4, top + 2, "(o)", p["lit"][0])
+        if i in (1, 5, 7):
+            put(x + 2, top - 1, "_" * (width - 4), color)
+
+    if condition == "foggy":
+        for y in (22, 26):
+            for x in range(0, cols, 17):
+                put(x, y, "~ ~ ~ ~", p["stars"])
+    put(0, 30, "=" * cols, p["back"])
+    # Broken reflections pick up the actual window colors above the waterfront.
+    for y in range(32, 35):
+        for x in range(cols):
+            _, color = grid[29 - (y - 31) * 2][x]
+            if (x * 3 + y * 5) % 11 < 4:
+                put(x, y, "~" if (x + y) % 3 == 0 else ".", color if color in p["lit"] else p["water"])
+    label = f"Colorful ASCII skyline at {phase}, {local_now.strftime('%I:%M %p %Z').lstrip('0')}"
+    if condition:
+        label += f", {'clear' if condition == 'sunny' and phase == 'night' else condition}"
+    width, height = 1088, 464
+    svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="{escape(label)}">',
+           f'<title>{escape(label)}</title>',
+           '<defs><linearGradient id="sky" x2="0" y2="1">',
+           f'<stop stop-color="{p["top"]}"/><stop offset="1" stop-color="{p["bottom"]}"/>',
+           '</linearGradient></defs>',
+           f'<rect width="{width}" height="{height}" rx="12" fill="url(#sky)"/>',
+           '<g font-family="DejaVu Sans Mono,Consolas,monospace" font-size="13" font-weight="600" xml:space="preserve">']
+    for row, cells in enumerate(grid):
+        start = 0
+        while start < cols:
+            color = cells[start][1]
+            end = start + 1
+            while end < cols and cells[end][1] == color:
+                end += 1
+            text = "".join(char for char, _ in cells[start:end])
+            if text.strip():
+                svg.append(f'<text x="{16+start*8}" y="{20+row*12}" fill="{color}" textLength="{len(text)*8}" lengthAdjust="spacingAndGlyphs">{escape(text)}</text>')
+            start = end
+    svg += ['</g>', f'<text x="1070" y="450" text-anchor="end" font-family="monospace" font-size="9" letter-spacing="3" fill="{p["stars"]}" opacity=".7">{phase.upper()}</text>', '</svg>']
     return "".join(svg) + "\n", label
 
 
@@ -151,7 +257,7 @@ def listening():
 
 
 def profile_line(location, fetch_weather=weather, fetch_listening=listening, now=None,
-                 fetch_air_quality=air_quality, scene=None):
+                 fetch_air_quality=air_quality):
     if location.get("recorded_at"):
         place = ", ".join(clean(location[k]) for k in ("city", "region", "country") if location.get(k))
         ip = clean(location["ip"])
@@ -169,8 +275,6 @@ def profile_line(location, fetch_weather=weather, fetch_listening=listening, now
         except (ZoneInfoNotFoundError, ValueError):
             pass
     parts = [f"{place} ({ip})", clock, conditions]
-    if scene:
-        parts.append(scene)
     try:
         quality = fetch_air_quality(location) if location.get("recorded_at") else None
         parts.append(f'[{clean(quality)}](https://open-meteo.com/en/docs/air-quality-api "CAMS via Open-Meteo; modeled air quality")' if quality else "air quality unavailable")
@@ -198,17 +302,23 @@ def main():
         if current is None:
             raise ValueError("Weather unavailable")
         return describe_weather(current)
-    svg, label = weather_scene(current.get("weather_code") if current else None,
-                               current.get("is_day") if current else None)
+    now = datetime.now(timezone.utc)
+    try:
+        local_now = now.astimezone(ZoneInfo(location.get("timezone", "UTC")))
+    except (ZoneInfoNotFoundError, ValueError):
+        local_now = now
+    svg, label = weather_scene(current.get("weather_code") if current else None, local_now,
+                               current.get("sunrise") if current else None,
+                               current.get("sunset") if current else None)
     version = hashlib.sha256(svg.encode()).hexdigest()[:12]
-    image = f'<img src="assets/weather-scene.svg?v={version}" width="128" height="40" alt="{escape(label)}" />'
-    output = profile_line(location, fetch_weather=summary, scene=image if "--terminal" not in sys.argv else None)
+    image = f'<img src="assets/weather-scene.svg?v={version}" width="100%" alt="{escape(label)}" />'
+    output = profile_line(location, fetch_weather=summary, now=now)
     if "--terminal" in sys.argv:
         print(output, end="")
     else:
         (ROOT / "assets").mkdir(exist_ok=True)
         (ROOT / "assets/weather-scene.svg").write_text(svg)
-        (ROOT / "README.md").write_text(output)
+        (ROOT / "README.md").write_text(output + "\n" + image + "\n")
 
 
 if __name__ == "__main__":
