@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime
 from contextlib import contextmanager
 import importlib.util
 import io
@@ -28,6 +29,12 @@ GEO = {"ip": "8.8.8.8", "city": "Example City", "region_code": "CA", "country": 
 TIME = "2026-11-03T01:00:00.000000+00:00"
 
 
+def http_json(data):
+    response = io.StringIO(json.dumps(data))
+    response.status = 200
+    return response
+
+
 class ProfileTests(unittest.TestCase):
     def test_location_whitelist(self):
         record = hook.location_record(dict(GEO, postal="secret", org="private"), TIME)
@@ -43,10 +50,45 @@ class ProfileTests(unittest.TestCase):
         location = hook.location_record(GEO, TIME)
         def unavailable(_):
             raise TimeoutError()
-        result = render.profile_line(location, unavailable)
-        self.assertEqual(result, "Everett is at Example City, CA, US (8.8.8.8) — weather unavailable.\n")
+        result = render.profile_line(location, unavailable, lambda: None, datetime.fromisoformat(TIME))
+        self.assertEqual(result, "Example City, CA, US (8.8.8.8) · 5:00 PM PST · weather unavailable\n")
         self.assertEqual(len(result.splitlines()), 1)
-        self.assertEqual(render.profile_line({}), "Everett is at an unknown location (IP unavailable) — weather unavailable.\n")
+        self.assertEqual(render.profile_line({}, fetch_listening=lambda: None), "location unavailable (IP unavailable) · local time unavailable · weather unavailable\n")
+
+    def test_local_time_dst_and_music_failure(self):
+        location = dict(hook.location_record(GEO, TIME), timezone="America/Detroit")
+        def unavailable():
+            raise TimeoutError()
+        result = render.profile_line(location, lambda _: "cloudy, 56°F", unavailable, datetime.fromisoformat(TIME))
+        self.assertIn("8:00 PM EST", result)
+        self.assertIn("listening status unavailable", result)
+        self.assertEqual(len(result.splitlines()), 1)
+
+    def test_spotify_unconfigured_avoids_requests(self):
+        with patch.dict(os.environ, {}, clear=True), patch.object(render, "urlopen") as api:
+            self.assertIsNone(render.listening())
+            api.assert_not_called()
+
+    def test_spotify_track_and_safe_markdown(self):
+        data = {"is_playing": True, "item": {"name": "Song [test]\nTitle", "artists": [{"name": "Artist"}],
+                "external_urls": {"spotify": "https://open.spotify.com/track/abc123"}}}
+        with patch.dict(os.environ, {"SPOTIFY_CLIENT_ID": "client", "SPOTIFY_REFRESH_TOKEN": "private"}), \
+             patch.object(render, "urlopen", side_effect=[io.StringIO('{"access_token":"access"}'), http_json(data)]) as api:
+            result = render.listening()
+        self.assertEqual(result, "♫ [Song \\[test\\] Title — Artist](https://open.spotify.com/track/abc123)")
+        self.assertIn("refresh_token=private", api.call_args_list[0].args[0].data.decode())
+        self.assertEqual(api.call_args_list[1].args[0].get_header("Authorization"), "Bearer access")
+
+    def test_spotify_paused_null_and_no_content(self):
+        for data in ({"is_playing": False, "item": {"name": "Paused"}}, {"is_playing": True, "item": None}):
+            with patch.dict(os.environ, {"SPOTIFY_CLIENT_ID": "client", "SPOTIFY_REFRESH_TOKEN": "private"}), \
+                 patch.object(render, "urlopen", side_effect=[io.StringIO('{"access_token":"access"}'), http_json(data)]):
+                self.assertEqual(render.listening(), "♫ not playing")
+        response = io.StringIO("")
+        response.status = 204
+        with patch.dict(os.environ, {"SPOTIFY_CLIENT_ID": "client", "SPOTIFY_REFRESH_TOKEN": "private"}), \
+             patch.object(render, "urlopen", side_effect=[io.StringIO('{"access_token":"access"}'), response]):
+            self.assertEqual(render.listening(), "♫ not playing")
 
     def test_remote_text_cannot_escape_fence(self):
         self.assertEqual(render.clean("city\n```\n<script>"), "city &#x27;&#x27;&#x27; &lt;script&gt;")

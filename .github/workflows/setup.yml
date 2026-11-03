@@ -1,8 +1,8 @@
-name: Update profile weather
+name: Update profile status
 
 on:
   schedule:
-    - cron: "*/12 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -21,6 +21,9 @@ concurrency:
 jobs:
   console:
     runs-on: ubuntu-latest
+    env:
+      SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+      SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:

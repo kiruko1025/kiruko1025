@@ -2,7 +2,7 @@
 
 The single README line displays the public IP and approximate city of the computer
 that most recently made a local commit with this hook installed. A scheduled
-GitHub Action refreshes weather for that recorded location every 12 minutes
+GitHub Action refreshes weather, local time and Spotify playback every 5 minutes
 (GitHub scheduling can be delayed). It never geolocates the Actions runner.
 
 ## Install on each computer used to commit
@@ -64,3 +64,32 @@ python3 "$HOME/.local/share/github-profile-location/profile_hook.py" uninstall
 
 Remove any manually appended per-repository hook lines when uninstalling. Public
 IP/location updates remain in Git history after the feature is disabled.
+
+## Local time and Spotify
+
+The README stays one line: location and IP, local time, weather, and Spotify
+playback. The clock uses the timezone recorded by the location hook, including
+daylight saving time. Both time and music are snapshots from the last workflow
+run, rather than a continuously ticking clock or a live player.
+
+Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard),
+select Web API, and register `http://127.0.0.1:8888/callback` as a redirect URI.
+The app's Client ID is available on its settings page. Spotify currently requires
+the developer app owner to have Premium. Then, from this checkout, run:
+
+```sh
+python3 scripts/connect_spotify.py YOUR_CLIENT_ID
+```
+
+Open the printed Spotify authorization URL, sign in, and allow
+`user-read-currently-playing`. The helper uses PKCE and writes
+`SPOTIFY_CLIENT_ID` and `SPOTIFY_REFRESH_TOKEN` straight to this repository's
+GitHub Actions secrets through your authenticated GitHub CLI. It does not need
+your Client Secret and never writes the refresh token to the repository or logs.
+Credentials are used only for the Spotify token endpoint and playback endpoint.
+
+Until connected, the music section is omitted. Once connected, it shows the
+track and artist linked to Spotify, or `not playing` when playback is inactive.
+Errors show `listening status unavailable`; they never reuse an older track.
+Developer-app refresh tokens currently expire after six months; rerun the
+connection helper when authorization expires or is revoked.
