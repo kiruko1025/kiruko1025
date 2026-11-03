@@ -1,17 +1,19 @@
-``` bash
-Last login: Mon, 02 Nov 2026 at 20:10:59 EST from 10.1.33.7
-
-echo "hello world, im $(whoami)." 
+```bash
+echo "hello world, im $(whoami)."
 hello world, im everett.
 
+$ profile --last-commit
+Waiting for the first commit from a computer with the location hook installed.
 
-$ head -1 /etc/hosts
-127.0.0.1 localhost miami, fl 
+$ weather --local
+Waiting for a recorded location.
 
-$ do one thing and do it well. ^U^D 
+$ do one thing and do it well. ^U^D
 
-``` 
- 
+```
+
+Location is approximate and reflects the network used for my last local commit. Weather: [Open-Meteo](https://open-meteo.com/).
+
 
 
 
@@ -84,3 +86,4 @@ $ do one thing and do it well. ^U^D
 </div>
 
 ###
+

@@ -1,52 +1,48 @@
-name: Run Console
+name: Update profile weather
 
 on:
   schedule:
-    - cron: "*/12 * * * *"  # Runs every 12 minute
-  workflow_dispatch:  # Allow manual triggering
+    - cron: "*/12 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - profile-location.json
+      - scripts/render_profile.py
+      - static.md
+      - .github/workflows/setup.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-weather
+  cancel-in-progress: false
 
 jobs:
   console:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2  # Checkout your code repository
-
-      - name: Configure Git
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Render current location and weather
+        run: python3 scripts/render_profile.py
+      - name: Commit profile update
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-
-      - name: Pull latest changes
-        run: git pull origin main  # Pull changes without rebase
-
-      - name: Run "console" and update README.md
-        run: |
-          set -x  # Enable debugging
-          sudo timedatectl set-timezone America/New_York
-          chmod +x console.sh  
-          
-          rm -f README.md
-          touch README.md
-          echo "\`\`\` bash" | tee -a README.md
-          ./console.sh | tee -a README.md
-          echo "\`\`\` " | tee -a README.md
-          echo " " | tee -a README.md
-          cat static.md | tee -a README.md
-
-      - name: Debug repository state
-        run: |
-          ls -l  # List files in the repository
-          git status  # Check the Git status
-          cat README.md  # Display the contents of README.md (if it exists)
-
-      - name: Commit and push changes
-        run: |
-          if git diff --quiet; then
-            echo "No changes to commit."
-          else
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          for attempt in 1 2 3; do
+            if git diff --quiet -- README.md; then exit 0; fi
             git add README.md
-            git commit -m "Run console"
-            git pull origin main --rebase --autostash  # Rebase before pushing
-            git push origin main
-          fi
+            git commit -m "Refresh profile weather"
+            if git push origin HEAD:main; then exit 0; fi
+            git fetch origin main
+            git reset --hard origin/main
+            python3 scripts/render_profile.py
+          done
+          echo "Profile changed repeatedly; a later run will retry."
+          exit 1
