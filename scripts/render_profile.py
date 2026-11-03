@@ -8,12 +8,12 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
-CONDITIONS = {0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Fog", 48: "Rime fog",
-              51: "Light drizzle", 53: "Drizzle", 55: "Heavy drizzle", 56: "Freezing drizzle", 57: "Freezing drizzle",
-              61: "Light rain", 63: "Rain", 65: "Heavy rain", 66: "Freezing rain", 67: "Freezing rain",
-              71: "Light snow", 73: "Snow", 75: "Heavy snow", 77: "Snow grains", 80: "Light showers",
-              81: "Showers", 82: "Heavy showers", 85: "Snow showers", 86: "Heavy snow showers",
-              95: "Thunderstorm", 96: "Thunderstorm with hail", 99: "Thunderstorm with hail"}
+CONDITIONS = {0: "sunny", 1: "sunny", 2: "cloudy", 3: "cloudy", 45: "foggy", 48: "foggy",
+              51: "raining", 53: "raining", 55: "raining", 56: "raining", 57: "raining",
+              61: "raining", 63: "raining", 65: "raining", 66: "raining", 67: "raining",
+              71: "snowing", 73: "snowing", 75: "snowing", 77: "snowing", 80: "raining",
+              81: "raining", 82: "raining", 85: "snowing", 86: "snowing",
+              95: "stormy", 96: "stormy", 99: "stormy"}
 
 
 def clean(value):
@@ -22,13 +22,15 @@ def clean(value):
 
 def weather(location):
     query = urlencode({"latitude": location["latitude"], "longitude": location["longitude"],
-                       "current": "temperature_2m,weather_code", "temperature_unit": "fahrenheit"})
+                       "current": "temperature_2m,weather_code,is_day", "temperature_unit": "fahrenheit"})
     request = Request("https://api.open-meteo.com/v1/forecast?" + query,
                       headers={"User-Agent": "github-profile-weather/1.0"})
     with urlopen(request, timeout=15) as response:
         data = json.load(response)
     current = data["current"]
-    condition = CONDITIONS.get(current["weather_code"], "Unknown conditions")
+    condition = CONDITIONS.get(current["weather_code"], "unknown conditions")
+    if current["weather_code"] in (0, 1) and not current.get("is_day", 1):
+        condition = "clear"
     return f"{condition}, {current['temperature_2m']:g}°F"
 
 

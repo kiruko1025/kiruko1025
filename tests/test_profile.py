@@ -58,8 +58,8 @@ class ProfileTests(unittest.TestCase):
         with patch.object(render, "urlopen", return_value=io.StringIO(json.dumps(response))) as api:
             result = render.weather(hook.location_record(GEO, TIME))
         self.assertIn("latitude=37.12", api.call_args.args[0].full_url)
-        self.assertIn("Partly cloudy, 72.5°F", result)
-        self.assertEqual(result, "Partly cloudy, 72.5°F")
+        self.assertIn("cloudy, 72.5°F", result)
+        self.assertEqual(result, "cloudy, 72.5°F")
 
     def test_publish_skips_ci(self):
         with patch.dict(os.environ, {"CI": "true"}), patch.object(hook, "gh") as api:
