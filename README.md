@@ -1,3 +1,3 @@
-Ann Arbor, MI, US (2600:1700:e4c0:3450::1c) · 10:01 PM EST · weather unavailable · [US AQI 36 · good](https://open-meteo.com/en/docs/air-quality-api "CAMS via Open-Meteo; modeled air quality") · ♫ not playing
+Ann Arbor, MI, US (2600:1700:e4c0:3450::1c) · 7:12 AM EST · [cloudy, 39.7°F](https://open-meteo.com/) · [US AQI 27 · good](https://open-meteo.com/en/docs/air-quality-api "CAMS via Open-Meteo; modeled air quality") · ♫ not playing
 
-<img src="assets/weather-scene.svg?v=b347fdd5d615" width="100%" alt="Colorful ASCII skyline at night, 10:01 PM EST" />
+<img src="assets/weather-scene.svg?v=2a8a34357cab" width="100%" alt="Colorful ASCII skyline at dawn, 7:12 AM EST, cloudy" />
